@@ -21,6 +21,10 @@
     "url": "https://github.com/neyric/swf-lambda-decider-poller/issues"
   },
   "dependencies": {
-    "aws-sdk": "^2.1.45"
+    "aws-sdk": "^2.1.45",
+    "uuid": "^2.0.1"
+  },
+  "devDependencies": {
+    "babel-register": "^6.4.3"
   }
 }

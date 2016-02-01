@@ -1,7 +1,11 @@
 
 var os = require('os'),
-    AWS = require('aws-sdk');
+    AWS = require('aws-sdk'),
+    uuid = require('uuid');
 
+if (process.env.LOCAL) {
+  require("babel-register")
+}
 
 AWS.config = new AWS.Config({
   region: process.env.AWS_REGION || 'us-east-1'
@@ -68,6 +72,36 @@ var poll = function () {
 
 };
 
+function createDecision(action) {
+  if (action.type === 'SCHEDULE_ACTIVITY') {
+    return {
+      decisionType: "ScheduleActivityTask",
+      scheduleActivityTaskDecisionAttributes: {
+        activityId: uuid.v4(),
+        activityType:  {
+          name: action.activity,
+          version: "1.0"
+        },
+        taskList:  { name: "activities" },
+        input:  JSON.stringify(action.input),
+      }
+    }
+  }
+}
+
+function processDecisionResult(taskToken, actions) {
+  var decisions = actions.map(createDecision)
+  var params = {
+    taskToken: taskToken,
+    decisions: decisions,
+  }
+  console.log(params)
+  swfClient.respondDecisionTaskCompleted(params, function(err, data) {
+    if (err) console.log(err, err.stack); // an error occurred
+    else     console.log('task completed', data);           // successful response
+  })
+}
+
 
 var _onNewTask = function(originalResult,result, events) {
     //For the first call, events will not be passed.
@@ -88,27 +122,39 @@ var _onNewTask = function(originalResult,result, events) {
         });
     } else {
         // No more pages available. Create decisionTask.
-        console.log(JSON.stringify(originalResult, null, 3));
-
         var workflowType = originalResult.workflowType;
         var workflowName = workflowType.name;
         var workflowVersion = workflowType.version;
         console.log('New Decision Task received !', workflowName, workflowVersion);
 
-        var workflowLambdaName = (workflowName+'-'+workflowVersion).replace(/[^a-zA-Z0-9\-\_]/g, '_'); //letters, numbers, hyphens, or underscores
-        console.log('Delegating decision to lambda: '+workflowLambdaName);
+        // var workflowLambdaName = (workflowName+'-'+workflowVersion).replace(/[^a-zA-Z0-9\-\_]/g, '_'); //letters, numbers, hyphens, or underscores
 
-        var params = {
-          FunctionName: workflowLambdaName,
-          InvocationType: 'Event', // Do not wait for execution
-          LogType: 'None',
-          Payload: JSON.stringify(originalResult)
-        };
-        console.log('Invoking lambda', params);
-        lambda.invoke(params, function(err, data) {
-          if (err) console.log(err, err.stack); // an error occurred
-          else     console.log(data);           // successful response
-        });
+        if (process.env.LOCAL) {
+          console.log('Invoking local', workflowName)
+          var lambda = require(process.env.LOCAL + '/' + workflowName + '/index.es6.js')
+          ctx = {
+            succeed: function(result) { processDecisionResult(originalResult.taskToken, result) },
+            fail: function(result) { console.log('fail:', result) },
+            done: function(result) { console.log('done:', result) }
+          }
+          lambda.handle(originalResult, ctx)
+        } else {
+          var workflowLambdaName = 'brain_' + workflowName
+          console.log('Delegating decision to lambda: '+workflowLambdaName);
+
+          var params = {
+            FunctionName: workflowLambdaName,
+            InvocationType: 'Event', // Do not wait for execution
+            LogType: 'None',
+            Payload: JSON.stringify(originalResult)
+          };
+
+          console.log('Invoking lambda', params);
+          lambda.invoke(params, function(err, data) {
+            if (err) console.log(err, err.stack); // an error occurred
+            else     processDecisionResult(data);           // successful response
+          });
+        }
 
     }
 
