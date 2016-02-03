@@ -1,3 +1,4 @@
+require('dotenv').load()
 
 var os = require('os'),
     AWS = require('aws-sdk'),
@@ -18,7 +19,7 @@ var swfClient = new AWS.SimpleWorkflow();
 
 var config = {
    "domain": process.env.DOMAIN || "testdomain",
-   "taskList": {"name": process.env.TASKLIST || "testtasklist"},
+   "taskList": {"name": process.env.DECISIONS_TASKLIST || "testtasklist"},
    "identity": 'Decider-' + os.hostname() + '-' + process.pid,
    "maximumPageSize": 100,
    "reverseOrder": false // IMPORTANT: must replay events in the right order, ie. from the start
@@ -80,7 +81,7 @@ function createDecision(action) {
         activityId: uuid.v4(),
         activityType:  {
           name: action.activity,
-          version: "1.0"
+          version: (action.version || '1.0')
         },
         taskList:  { name: "activities" },
         input:  JSON.stringify(action.input),

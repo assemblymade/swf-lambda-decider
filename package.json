@@ -4,6 +4,8 @@
   "description": "Polls SWF for new Decision Tasks and delegate them to a swf-lambda-decider",
   "main": "index.js",
   "scripts": {
+    "activities": "node activities.js",
+    "decisions": "node decisions.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -25,6 +27,8 @@
     "uuid": "^2.0.1"
   },
   "devDependencies": {
-    "babel-register": "^6.4.3"
+    "babel-polyfill": "^6.3.14",
+    "babel-register": "^6.4.3",
+    "dotenv": "^2.0.0"
   }
 }
