@@ -6,6 +6,7 @@ var os = require('os'),
 
 if (process.env.LOCAL) {
   require("babel-register")
+  require("babel-polyfill")
 }
 
 AWS.config = new AWS.Config({
@@ -91,12 +92,16 @@ function createDecision(action) {
 }
 
 function processDecisionResult(taskToken, actions) {
+  if (actions.length === 0) {
+    // complete the biatch
+    return
+  }
   var decisions = actions.map(createDecision)
   var params = {
     taskToken: taskToken,
     decisions: decisions,
   }
-  console.log(params)
+  console.log(actions)
   swfClient.respondDecisionTaskCompleted(params, function(err, data) {
     if (err) console.log(err, err.stack); // an error occurred
     else     console.log('task completed', data);           // successful response
@@ -138,6 +143,7 @@ var _onNewTask = function(originalResult,result, events) {
             fail: function(result) { console.log('fail:', result) },
             done: function(result) { console.log('done:', result) }
           }
+          originalResult.events = events
           lambda.handle(originalResult, ctx)
         } else {
           var workflowLambdaName = 'brain_' + workflowName
