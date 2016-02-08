@@ -74,8 +74,12 @@ var poll = function () {
 
 };
 
+const SCHEDULE_ACTIVITY = 'SCHEDULE_ACTIVITY'
+const FINISH_WORKFLOW = 'FINISH_WORKFLOW'
+
 function createDecision(action) {
-  if (action.type === 'SCHEDULE_ACTIVITY') {
+  switch (action.type) {
+  case SCHEDULE_ACTIVITY:
     return {
       decisionType: "ScheduleActivityTask",
       scheduleActivityTaskDecisionAttributes: {
@@ -88,6 +92,13 @@ function createDecision(action) {
         input:  JSON.stringify(action.input),
       }
     }
+
+  case FINISH_WORKFLOW:
+    return {
+      decisionType: "CompleteWorkflowExecution",
+    }
+
+  default:
   }
 }
 
