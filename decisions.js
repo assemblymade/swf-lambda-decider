@@ -80,16 +80,27 @@ const FINISH_WORKFLOW = 'FINISH_WORKFLOW'
 function createDecision(action) {
   switch (action.type) {
   case SCHEDULE_ACTIVITY:
-    return {
-      decisionType: "ScheduleActivityTask",
-      scheduleActivityTaskDecisionAttributes: {
-        activityId: uuid.v4(),
-        activityType:  {
-          name: action.activity,
-          version: (action.version || '1.0')
-        },
-        taskList:  { name: "activities" },
-        input:  JSON.stringify(action.input),
+    if (process.env.LOCAL) {
+      return {
+        decisionType: "ScheduleActivityTask",
+        scheduleActivityTaskDecisionAttributes: {
+          activityId: uuid.v4(),
+          activityType:  {
+            name: action.activity,
+            version: (action.version || '1.0')
+          },
+          taskList:  { name: "activities" },
+          input:  JSON.stringify(action.input),
+        }
+      }
+    } else {
+      return {
+        decisionType: "ScheduleLambdaFunction",
+        scheduleLambdaFunctionDecisionAttributes: {
+          id: uuid.v4(),
+          name: 'brain_' + action.activity,
+          input:  JSON.stringify(action.input),
+        }
       }
     }
 
@@ -103,10 +114,7 @@ function createDecision(action) {
 }
 
 function processDecisionResult(taskToken, actions) {
-  if (actions.length === 0) {
-    // complete the biatch
-    return
-  }
+  if (actions.length === 0) { return }
   var decisions = actions.map(createDecision)
   var params = {
     taskToken: taskToken,
@@ -139,6 +147,7 @@ var _onNewTask = function(originalResult,result, events) {
         });
     } else {
         // No more pages available. Create decisionTask.
+        originalResult.events = events
         var workflowType = originalResult.workflowType;
         var workflowName = workflowType.name;
         var workflowVersion = workflowType.version;
@@ -154,15 +163,15 @@ var _onNewTask = function(originalResult,result, events) {
             fail: function(result) { console.log('fail:', result) },
             done: function(result) { console.log('done:', result) }
           }
-          originalResult.events = events
           lambda.handle(originalResult, ctx)
         } else {
+          var lambda = new AWS.Lambda();
           var workflowLambdaName = 'brain_' + workflowName
           console.log('Delegating decision to lambda: '+workflowLambdaName);
 
           var params = {
             FunctionName: workflowLambdaName,
-            InvocationType: 'Event', // Do not wait for execution
+            InvocationType: 'RequestResponse',
             LogType: 'None',
             Payload: JSON.stringify(originalResult)
           };
@@ -170,7 +179,7 @@ var _onNewTask = function(originalResult,result, events) {
           console.log('Invoking lambda', params);
           lambda.invoke(params, function(err, data) {
             if (err) console.log(err, err.stack); // an error occurred
-            else     processDecisionResult(data);           // successful response
+            else     processDecisionResult(originalResult.taskToken, JSON.parse(data.Payload));           // successful response
           });
         }
 
