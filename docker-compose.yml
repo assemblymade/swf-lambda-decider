@@ -1,3 +1,7 @@
 decisions:
   build: .
   command: npm run decisions
+
+activities:
+  build: .
+  command: npm run activities

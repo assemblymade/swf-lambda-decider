@@ -4,7 +4,7 @@ var os = require('os'),
     AWS = require('aws-sdk'),
     uuid = require('uuid');
 
-if (process.env.LOCAL) {
+if (process.env.LOCAL_FUNCTIONS) {
   require("babel-register")
   require("babel-polyfill")
 }
@@ -26,6 +26,7 @@ var config = {
    "reverseOrder": false // IMPORTANT: must replay events in the right order, ie. from the start
 };
 
+console.log(config)
 
 
 var stop_poller = false;
@@ -75,12 +76,14 @@ var poll = function () {
 };
 
 const SCHEDULE_ACTIVITY = 'SCHEDULE_ACTIVITY'
+const SCHEDULE_MANUAL_ACTIVITY = 'SCHEDULE_MANUAL_ACTIVITY'
 const FINISH_WORKFLOW = 'FINISH_WORKFLOW'
 
 function createDecision(action) {
   switch (action.type) {
+  case SCHEDULE_MANUAL_ACTIVITY:
   case SCHEDULE_ACTIVITY:
-    if (process.env.LOCAL) {
+    if (action.type === SCHEDULE_MANUAL_ACTIVITY || process.env.LOCAL_FUNCTIONS) {
       return {
         decisionType: "ScheduleActivityTask",
         scheduleActivityTaskDecisionAttributes: {
@@ -155,9 +158,10 @@ var _onNewTask = function(originalResult,result, events) {
 
         // var workflowLambdaName = (workflowName+'-'+workflowVersion).replace(/[^a-zA-Z0-9\-\_]/g, '_'); //letters, numbers, hyphens, or underscores
 
-        if (process.env.LOCAL) {
-          console.log('Invoking local', workflowName)
-          var lambda = require(process.env.LOCAL + '/' + workflowName + '/index.es6.js')
+        if (process.env.LOCAL_FUNCTIONS) {
+          const localFunction = 'brain/functions/' + workflowName + '/index.es6.js'
+          console.log('Invoking local', localFunction)
+          var lambda = require(localFunction)
           ctx = {
             succeed: function(result) { processDecisionResult(originalResult.taskToken, result) },
             fail: function(result) { console.log('fail:', result) },

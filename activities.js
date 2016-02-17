@@ -3,7 +3,7 @@ require('dotenv').load()
 var os = require('os'),
     AWS = require('aws-sdk');
 
-if (process.env.LOCAL) {
+if (process.env.LOCAL_FUNCTIONS) {
   require("babel-register")
   require("babel-polyfill")
 }
@@ -92,15 +92,17 @@ var _onNewTask = function(task) {
 
   var activity = task.activityType.name
 
-  if (process.env.LOCAL) {
+  if (process.env.LOCAL_FUNCTIONS) {
     console.log('Invoking local', activity)
-    var lambda = require(process.env.LOCAL + '/' + activity + '/index.es6.js')
+    var lambda = require('brain/functions/' + activity + '/index.es6.js')
     ctx = {
       succeed: function(result) { processActivityResult(task.taskToken, result) },
       fail: function(result) { console.log('fail:', result) },
       done: function(result) { console.log('done:', result) }
     }
-    lambda.handle(JSON.parse(task.input), ctx)
+    var params = JSON.parse(task.input)
+    params.activityToken = task.taskToken
+    lambda.handle(params, ctx)
   } else {
     var params = {
       FunctionName: lambdaName,
