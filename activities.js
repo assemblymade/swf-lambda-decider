@@ -91,27 +91,25 @@ var _onNewTask = function(task) {
   console.log(JSON.stringify(task, null, 3));
 
   var activity = task.activityType.name
+  var params = JSON.parse(task.input)
+  params.activityToken = task.taskToken
 
   if (process.env.LOCAL_FUNCTIONS) {
     console.log('Invoking local', activity)
-    var lambda = require('brain/functions/' + activity + '/index.es6.js')
+    var func = require('brain/functions/' + activity + '/index.es6.js')
     ctx = {
       succeed: function(result) { processActivityResult(task.taskToken, result) },
       fail: function(result) { console.log('fail:', result) },
       done: function(result) { console.log('done:', result) }
     }
-    var params = JSON.parse(task.input)
-    params.activityToken = task.taskToken
-    lambda.handle(params, ctx)
+    func.handle(params, ctx)
   } else {
+    var lambdaName = 'brain_' + activity
     var params = {
       FunctionName: lambdaName,
-      InvocationType: 'Event', // Do not wait for execution
+      InvocationType: 'RequestResponse',
       LogType: 'None',
-      Payload: JSON.stringify({
-        input: lambdaParams,
-        taskToken: taskToken
-      })
+      Payload: JSON.stringify(params)
     };
     console.log('Invoking lambda', params);
     lambda.invoke(params, function(err, data) {
