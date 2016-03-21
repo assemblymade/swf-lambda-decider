@@ -159,7 +159,7 @@ var _onNewTask = function(originalResult,result, events) {
         // var workflowLambdaName = (workflowName+'-'+workflowVersion).replace(/[^a-zA-Z0-9\-\_]/g, '_'); //letters, numbers, hyphens, or underscores
 
         if (process.env.LOCAL_FUNCTIONS) {
-          const localFunction = 'brain/functions/' + workflowName + '/index.es6.js'
+          const localFunction = 'brain/functions/' + workflowName
           console.log('Invoking local', localFunction)
           var lambda = require(localFunction)
           ctx = {
@@ -167,7 +167,7 @@ var _onNewTask = function(originalResult,result, events) {
             fail: function(result) { console.log('fail:', result) },
             done: function(result) { console.log('done:', result) }
           }
-          lambda.handle(originalResult, ctx)
+          lambda.default(originalResult, ctx)
         } else {
           var lambda = new AWS.Lambda();
           var workflowLambdaName = 'brain_' + workflowName

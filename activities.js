@@ -96,13 +96,19 @@ var _onNewTask = function(task) {
 
   if (process.env.LOCAL_FUNCTIONS) {
     console.log('Invoking local', activity)
-    var func = require('brain/functions/' + activity + '/index.es6.js')
+    var func = require('brain/functions/' + activity)
     ctx = {
-      succeed: function(result) { processActivityResult(task.taskToken, result) },
+      succeed: function(result) {
+        if (!result) {
+          console.log('pausing activity')
+          return
+        }
+        processActivityResult(task.taskToken, result)
+      },
       fail: function(result) { console.log('fail:', result) },
       done: function(result) { console.log('done:', result) }
     }
-    func.handle(params, ctx)
+    func.default(params, ctx)
   } else {
     var lambdaName = 'brain_' + activity
     var params = {
