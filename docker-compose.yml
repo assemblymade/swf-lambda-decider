@@ -1,7 +1,3 @@
-decisions:
+poller:
   build: .
-  command: npm run decisions
-
-activities:
-  build: .
-  command: npm run activities
+  command: npm start

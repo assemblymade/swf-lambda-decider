@@ -1,13 +1,8 @@
-require('dotenv').load()
+import log from './logger'
+import path from 'path'
 
 var os = require('os'),
     AWS = require('aws-sdk');
-
-if (process.env.LOCAL_FUNCTIONS) {
-  require("babel-register")
-  require("babel-polyfill")
-}
-
 
 AWS.config = new AWS.Config({
   region: process.env.AWS_REGION || 'us-east-1'
@@ -24,12 +19,9 @@ var config = {
    "identity": 'LambdaActivityPoller-' + os.hostname() + '-' + process.pid,
 };
 
-console.log(config)
-
-
+log(config)
 
 var stop_poller = false;
-
 
 var _ = {
   clone: function (src) {
@@ -44,20 +36,18 @@ var _ = {
 };
 
 
-var poll = function () {
-
-
+export default function poll() {
    // Copy config
    var o = _.clone(config);
 
-   console.log("polling...");
+   log({event: "poll", type: 'activities'});
 
    // Poll request on AWS
    // http://docs.aws.amazon.com/amazonswf/latest/apireference/API_PollForActivityTask.html
    swf.pollForActivityTask(o, function (err, result) {
 
       if (err) {
-        console.log("Error in polling ! ", err);
+        log({error: "polling", ...err});
         poll();
         return;
       }
@@ -79,17 +69,15 @@ function processActivityResult(taskToken, result) {
     taskToken: taskToken,
     result: JSON.stringify(result),
   }
-  console.log('activity result', params)
+  log({event: "activity-result", ...result});
+
   swf.respondActivityTaskCompleted(params, function(err, data) {
-    if (err) console.log(err, err.stack); // an error occurred
-    else     console.log('task completed', data);           // successful response
+    if (err) log({error: err, stack: err.stack}); // an error occurred
+    else     log({event: 'activity-completed', ...data});           // successful response
   })
 }
 
 var _onNewTask = function(task) {
-
-  console.log(JSON.stringify(task, null, 3));
-
   var activity = task.activityType.name
   var params = JSON.parse(task.input)
   params.activityToken = task.taskToken
@@ -97,7 +85,7 @@ var _onNewTask = function(task) {
   if (process.env.LOCAL_FUNCTIONS) {
     console.log('Invoking local', activity)
     var func = require('brain/functions/' + activity)
-    ctx = {
+    const ctx = {
       succeed: function(result) {
         if (!result) {
           console.log('pausing activity')
@@ -117,13 +105,10 @@ var _onNewTask = function(task) {
       LogType: 'None',
       Payload: JSON.stringify(params)
     };
-    console.log('Invoking lambda', params);
+    log({event: 'invoke-lambda', ...params});
     lambda.invoke(params, function(err, data) {
-      if (err) console.log(err, err.stack); // an error occurred
-      else     console.log(data);           // successful response
+      if (err) log({error: err, stack: err.stack});
+      else     log({event: 'lambda-completed', ...data});
     });
   }
 };
-
-
-poll();
