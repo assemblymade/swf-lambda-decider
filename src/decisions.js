@@ -106,6 +106,7 @@ function createDecision(action) {
 
 function processDecisionResult(taskToken, actions) {
   if (actions.length === 0) { return }
+  log({event: 'decisions-pending', actions})
   var decisions = actions.map(createDecision)
   var params = {
     taskToken: taskToken,
